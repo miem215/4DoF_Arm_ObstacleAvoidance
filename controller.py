@@ -33,8 +33,8 @@ class NMPCController:
         for k in range(self.N):
             # Cost: Tracking error + control effort
             ee_pos = self.kin.forward_kinematics_sym(X[:3, k])
-            cost += ca.sumsqr(ee_pos - target_pos) * 10
-            cost += ca.sumsqr(U[:, k]) * 0.1
+            cost += ca.sumsqr(ee_pos - target_pos) * 100
+            cost += ca.sumsqr(U[:, k]) * 0.5
             
         self.opti.minimize(cost)
         

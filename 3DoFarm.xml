@@ -17,17 +17,19 @@
                 </body>
             </body>
         </body>
-	<body name="barrier" pos="0.3 0 0.4">
-            <geom type="box" size="0.05 0.3 0.4" rgba="0.5 0.5 0.5 1"/>
-        </body>
         <body name="target" pos="0.6 0.1 0.45">
-            <geom type="cylinder" size="0.03 0.05" rgba="0 1 0 1"/>
+            <geom type="cylinder" size="0.03 0.05" rgba="0 1 0 1" contype="0" conaffinity="0"/>
         </body>
     </worldbody>
 	
     <actuator>
-        <motor joint="joint1" name="motor1" ctrlrange="-50 50"/>
-        <motor joint="joint2" name="motor2" ctrlrange="-50 50"/>
-        <motor joint="joint3" name="motor3" ctrlrange="-50 50"/>
+        <motor joint="joint1" name="motor1" ctrlrange="-500 500" ctrllimited="true"/>
+        <motor joint="joint2" name="motor2" ctrlrange="-500 500" ctrllimited="true"/>
+        <motor joint="joint3" name="motor3" ctrlrange="-500 500" ctrllimited="true"/>
     </actuator>
+
+
+    <keyframe>
+        <key name="home_bent" qpos="0.1 0.1 0.1" />
+    </keyframe>
 </mujoco>
