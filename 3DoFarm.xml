@@ -32,6 +32,16 @@
         <motor joint="joint3" name="motor3" ctrlrange="-500 500" ctrllimited="true"/>
     </actuator>
 
+    <sensor>
+        <jointpos joint="joint1" name="enc_pos_j1"/>
+        <jointpos joint="joint2" name="enc_pos_j2"/>
+        <jointpos joint="joint3" name="enc_pos_j3"/>
+        
+        <jointvel joint="joint1" name="enc_vel_j1"/>
+        <jointvel joint="joint2" name="enc_vel_j2"/>
+        <jointvel joint="joint3" name="enc_vel_j3"/>
+    </sensor>
+
 
     <keyframe>
         <key name="home_bent" qpos="0.1 0.1 0.1" />

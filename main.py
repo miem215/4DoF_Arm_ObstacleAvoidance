@@ -30,8 +30,21 @@ def main():
             while viewer.is_running():
                 # Step the physics
                 ee_pos = data.site_xpos[ee_site_id].copy()
-                q_init = data.qpos[:3].copy()
-                dq_init = data.qvel[:3].copy()
+
+                raw_sensor_bus = np.array(data.sensordata)
+
+                # 2. Parse the encoders (Indices 0,1,2 are pos; 3,4,5 are vel based on XML order)
+                enc_pos = raw_sensor_bus[0:3]
+                enc_vel = raw_sensor_bus[3:6]
+
+                # 3. Define your explicit Covariance parameters (The "R" matrix values)
+                # For example: 0.005 radians noise on position, 0.02 rad/s on velocity
+                sigma_pos = 0.005  
+                sigma_vel = 0.02   
+
+                # 4. Inject synthetic Gaussian noise
+                noisy_pos = enc_pos + np.random.normal(0, sigma_pos, 3)
+                noisy_vel = enc_vel + np.random.normal(0, sigma_vel, 3)
 
                 # Get actual End-Effector and target id
                 obs_pos = data.xpos[obs_body_id].copy()
@@ -49,7 +62,7 @@ def main():
                 else:
 
                     try:
-                        optimal_acc = controller.solve(q_init, dq_init, target_pos, obs_pos)
+                        optimal_acc = controller.solve(noisy_pos, noisy_vel, target_pos, obs_pos)
                         
                     except Exception as e:
                         print(f"Solver failed: {e}")
