@@ -1,8 +1,6 @@
 # Use 'r' before the quotes to create a "Raw String". 
 # This stops Python from messing with the LaTeX backslashes!
-readme_content = r"""# 4-DOF Robotic Arm: NMPC & UKF in MuJoCo
-
-## Project Overview
+readme_content = r"""## Project Overview
 
 This project simulates a 4 Degree-of-Freedom (4-DOF) robotic arm in the MuJoCo physics engine. It utilizes a custom-built **Nonlinear Model Predictive Controller (NMPC)** powered by CasADi to calculate optimal trajectories, coupled with an **Unscented Kalman Filter (UKF)** to handle noisy real-world sensor data.
 
@@ -10,12 +8,14 @@ The system is designed to track a target coordinate while proactively dodging a 
 
 ## Motivation & Project Evolution
 
-This project evolved through several high-level modifications to bridge the gap between a basic robotic simulation and a realistic, hardware-ready control architecture:
+This project evolved through several modifications to arrive current control architecture:
 
-* **Kinematic Upgrade (3-DOF to 4-DOF):** The manipulator was upgraded from 3 to 4 degrees of freedom. This added kinematic redundancy is crucial; it allows the arm to maintain a positional lock on the target while simultaneously contorting its internal posture to dodge intermediate obstacles.
-* **Dynamic Environments:** The project transitioned from static spatial waypoints to a highly dynamic environment by introducing a continuously swinging obstacle. This necessitated the shift to real-time Nonlinear Model Predictive Control (NMPC) to proactively predict and recalculate safe trajectories on the fly.
-* **Sim-to-Real State Estimation:** To simulate physical hardware limitations, pristine simulation data was intentionally corrupted with Gaussian noise. An Unscented Kalman Filter (UKF) was implemented from scratch to clean this sensor data before feeding it to the NMPC, mimicking the exact pipeline required for real-world hardware encoders.
+* **Kinematic Upgrade (3-DOF to 4-DOF):** The manipulator was upgraded from 3 to 4 degrees of freedom. This added kinematic redundancy allows the arm to maintain a positional lock on the target while simultaneously contorting its internal posture to dodge obstacles.
+* **Dynamic Environments:** The project transitioned from using stationary obstacle to dynamic obstacle. This necessitated the shift to real-time Nonlinear Model Predictive Control (NMPC) to proactively predict and recalculate safe trajectories on the fly.
+* **State Estimation:** To simulate physical hardware limitations, pristine simulation data was intentionally corrupted with Gaussian noise. An Unscented Kalman Filter (UKF) was implemented from scratch to clean this sensor data before feeding it to the NMPC, mimicking the exact pipeline required for real-world hardware encoders.
 * **Whole-Body Collision Awareness:** The collision constraints evolved from simple "end-effector-only" checking to a planar whole-body force field. Virtual nodes are now mathematically calculated along the arm's links to prevent intermediate joints (like the elbow or wrist) from clipping the obstacle.
+
+<img width="589" height="501" alt="4DoF_arm" src="https://github.com/user-attachments/assets/bb05b217-597d-4e91-8c6b-935fcfb1d968" />
 
 ## Design Justification & Computational Profiling
 
@@ -26,8 +26,6 @@ To ensure this controller is viable for physical hardware deployment, specific a
 * **Solve Time Performance:** The CasADi IPOPT solver successfully completes the 20-step non-linear horizon in approximately 10-15 milliseconds on an average CPU, running comfortably within the 20ms allowance required for stable 50Hz control.
 
 ## Sim-to-Real Considerations
-
-Many simulation projects assume perfect access to ground-truth state data. To bridge the gap to physical robotics, this pipeline explicitly simulates cheap, noisy hardware:
 
 * **Sensor Noise Injection:** Gaussian noise ($\mathcal{N}(0, R)$) is continuously injected into MuJoCo's pristine joint position and velocity sensor buses to simulate encoder inaccuracies.
 * **Why the UKF?** An Unscented Kalman Filter (UKF) was implemented from scratch to clean this noisy data before it reaches the NMPC. In the current architecture, the state vector is $x = [q, \dot{q}]^T$. Because we use a simple one-step Euler integration for the process model, and because the measurements are direct simulated encoder readings (mapping 1:1 with the states), the entire system is strictly linear:
@@ -54,6 +52,7 @@ $$
 
 Because the Forward Kinematics ($\text{FK}$) relies on highly non-linear trigonometric transformations, a Linear KF will fail. The UKF's deterministic sigma points are already in place to naturally handle this future non-linear measurement update without requiring a complete estimator rewrite or complex Jacobian derivations.
 
+
 ## Mathematical Formulation
 
 ### 1. System Dynamics
@@ -72,16 +71,12 @@ $$
 J = \sum_{k=0}^{N-1} \left( J_{track, k} + J_{effort, k} + J_{posture, k} + J_{slack, k} \right) + J_{terminal}
 $$
 
-Where the individual **Running Costs** are defined as:
+Where the individual running costs are defined as:
 
 * **Target Tracking:** $J_{track, k} = 500 \| \text{FK}(q_k) - p_{target} \|_2^2$
 * **Control & Velocity Effort:** $J_{effort, k} = 0.2 \| u_k \|_2^2 + 0.2 \| \dot{q}_k \|_2^2$
 * **Postural Alignment:** $J_{posture, k} = (q_k - q_{home})^T W_{posture} (q_k - q_{home})$
 * **Obstacle Slack Penalty:** $J_{slack, k} = W_{obs} \cdot s_k$ (where $W_{obs} = 100,000$)
-
-And the **Terminal Cost** (enforcing strategic goal-reaching at the very end of the predictive horizon, $N$):
-
-* **Terminal Tracking Penalty:** $J_{terminal} = 1000 \| \text{FK}(q_N) - p_{target} \|_2^2$
 
 ### 3. Whole-Body Collision Avoidance (Virtual Nodes)
 

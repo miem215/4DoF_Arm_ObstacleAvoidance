@@ -29,33 +29,36 @@ To ensure this controller is viable for physical hardware deployment, specific a
 * **Why the UKF?** An Unscented Kalman Filter (UKF) was implemented from scratch to clean this noisy data before it reaches the NMPC. In the current architecture, the state vector is $x = [q, \dot{q}]^T$. Because we use a simple one-step Euler integration for the process model, and because the measurements are direct simulated encoder readings (mapping 1:1 with the states), the entire system is strictly linear:
 
 **Current Linear Process Model (Explicit Euler):**
+
 $$
-x_{k+1} = \\begin{bmatrix} q_k + \dot{q}_k \Delta t \\\\ \dot{q}_k + u_k \Delta t \\end{bmatrix} + w_k
+x_{k+1} = \begin{bmatrix} q_k + \dot{q}_k \Delta t \\ \dot{q}_k + u_k \Delta t \end{bmatrix} + w_k
 $$
 
 **Current Linear Measurement Model (Encoders):**
+
 $$
-z_k = I \\cdot x_k + v_k
+z_k = I \cdot x_k + v_k
 $$
 
 Because both models are linear, a standard Linear Kalman Filter (KF) would technically suffice. However, the UKF was explicitly chosen as an **architectural future-proofing** measure. To simulate real-world lab conditions in future iterations, Cartesian camera data $(x, y, z)$ will be fused with the encoder data.
 
 **Future Non-Linear Measurement Model (Camera Fusion):**
+
 $$
-z_{cam} = \\text{FK}(q_k) + v_{cam}
+z_{cam} = \text{FK}(q_k) + v_{cam}
 $$
 
-Because the Forward Kinematics ($\\text{FK}$) relies on highly non-linear trigonometric transformations, a Linear KF will fail. The UKF's deterministic sigma points are already in place to naturally handle this future non-linear measurement update without requiring a complete estimator rewrite or complex Jacobian derivations.
+Because the Forward Kinematics ($\text{FK}$) relies on highly non-linear trigonometric transformations, a Linear KF will fail. The UKF's deterministic sigma points are already in place to naturally handle this future non-linear measurement update without requiring a complete estimator rewrite or complex Jacobian derivations.
 
 
 ## Mathematical Formulation
 
 ### 1. System Dynamics
 
-The NMPC predicts the future states of the arm over a horizon $N$ using Explicit Euler integration. Let the state vector be $x = [q, \dot{q}]^T \\in \\mathbb{R}^8$ and the control input be joint accelerations $u = \ddot{q} \\in \\mathbb{R}^4$. The system dynamics are defined as:
+The NMPC predicts the future states of the arm over a horizon $N$ using Explicit Euler integration. Let the state vector be $x = [q, \dot{q}]^T \in \mathbb{R}^8$ and the control input be joint accelerations $u = \ddot{q} \in \mathbb{R}^4$. The system dynamics are defined as:
 
 $$
-x_{k+1} = \\begin{bmatrix} q_{k+1} \\\\ \dot{q}_{k+1} \\end{bmatrix} = \\begin{bmatrix} q_k + \dot{q}_k \Delta t \\\\ \dot{q}_k + u_k \Delta t \\end{bmatrix}
+x_{k+1} = \begin{bmatrix} q_{k+1} \\ \dot{q}_{k+1} \end{bmatrix} = \begin{bmatrix} q_k + \dot{q}_k \Delta t \\ \dot{q}_k + u_k \Delta t \end{bmatrix}
 $$
 
 ### 2. NMPC Cost Function
@@ -68,8 +71,8 @@ $$
 
 Where the individual running costs are defined as:
 
-* **Target Tracking:** $J_{track, k} = 500 \\| \\text{FK}(q_k) - p_{target} \\|_2^2$
-* **Control & Velocity Effort:** $J_{effort, k} = 0.2 \\| u_k \\|_2^2 + 0.2 \\| \dot{q}_k \\|_2^2$
+* **Target Tracking:** $J_{track, k} = 500 \| \text{FK}(q_k) - p_{target} \|_2^2$
+* **Control & Velocity Effort:** $J_{effort, k} = 0.2 \| u_k \|_2^2 + 0.2 \| \dot{q}_k \|_2^2$
 * **Postural Alignment:** $J_{posture, k} = (q_k - q_{home})^T W_{posture} (q_k - q_{home})$
 * **Obstacle Slack Penalty:** $J_{slack, k} = W_{obs} \cdot s_k$ (where $W_{obs} = 100,000$)
 
@@ -105,3 +108,19 @@ Because the collision avoidance relies on a soft-constraint slack variable formu
 * `filter.py` - Contains the Unscented Kalman Filter (UKF) implementation. 
 * `Kinematic.py` - The kinematic engine handling symbolic forward kinematics for the CasADi solver.
 * `3DoFarm.xml` - The MuJoCo environment specification.
+
+## Installation & Usage
+
+**Prerequisites:**
+You will need Python 3.8+ and the following libraries:
+
+```bash
+pip install mujoco casadi numpy scipy
+```
+
+**Running the Simulation:**
+To launch the simulation with the passive MuJoCo viewer:
+
+```bash
+python main.py
+```
