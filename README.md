@@ -57,9 +57,9 @@ UKF performace on the joint velocity in current setup:
 
 <img width="3000" height="1500" alt="ukf_performance" src="https://github.com/user-attachments/assets/86baae36-f166-4b41-bcac-e079fb32501d" />
 
-## Mathematical Formulation
-
-### 1. System Dynamics
+## Nonlinear Model Predictive Controller (NMPC)
+### 1. Why NMPC
+### 2. System Dynamics
 
 The NMPC predicts the future states of the arm over a horizon $N$ using Explicit Euler integration. Let the state vector be $x = [q, \dot{q}]^T \in \mathbb{R}^8$ and the control input be joint accelerations $u = \ddot{q} \in \mathbb{R}^4$. The system dynamics are defined as:
 
@@ -67,7 +67,7 @@ $$
 x_{k+1} = \begin{bmatrix} q_{k+1} \\ \dot{q}_{k+1} \end{bmatrix} = \begin{bmatrix} q_k + \dot{q}_k \Delta t \\ \dot{q}_k + u_k \Delta t \end{bmatrix}
 $$
 
-### 2. NMPC Cost Function
+### 3. Cost Function and Tunning
 
 The CasADi solver minimizes a highly tuned cost function $J$ across the prediction horizon. The cost function balances target tracking, obstacle avoidance and energy efficiency and postural stability:
 
@@ -82,7 +82,7 @@ Where the individual running costs are defined as:
 * **Postural Alignment:** $J_{posture, k} = (q_k - q_{home})^T W_{posture} (q_k - q_{home})$
 * **Obstacle Slack Penalty:** $J_{slack, k} = W_{obs} \cdot s_k$ (where $W_{obs} = 100,000$)
 
-### 3. Whole-Body Collision Avoidance (Virtual Nodes)
+## Whole-Body Collision Avoidance (Virtual Nodes)
 
 To prevent the intermediate links from clipping through the dynamic obstacle, the arm calculates fast 2D planar kinematics (treating the obstacle as an infinite pillar along the Z-axis). For each joint/node, the radial distance $r$ in the X-Y plane is derived:
 
