@@ -57,15 +57,6 @@ UKF performace on the joint velocity in current setup:
 
 <img width="3000" height="1500" alt="ukf_performance" src="https://github.com/user-attachments/assets/86baae36-f166-4b41-bcac-e079fb32501d" />
 
-
-## Design Justification & Computational Profiling
-
-To ensure this controller is viable for physical hardware deployment, specific algorithmic trade-offs were made to prioritize **real-time execution (50Hz)**:
-
-* **Explicit Euler Dynamics:** Explicit Euler integration was chosen over higher-order solvers like Runge-Kutta 4 (RK4). While RK4 offers superior prediction accuracy, Explicit Euler guarantees a strict sub-20ms solve time, which is critical for closing the control loop in real-time.
-* **Predictive Horizon ($N=20$):** At a timestep of $\Delta t = 0.02s$, a 20-step horizon yields a 0.4-second predictive window. This provides just enough spatial awareness for the IPOPT solver to dodge dynamic obstacles without causing computational bottlenecks.
-* **Solve Time Performance:** The CasADi IPOPT solver successfully completes the 20-step non-linear horizon in approximately 10-15 milliseconds on an average CPU, running comfortably within the 20ms allowance required for stable 50Hz control.
-
 ## Mathematical Formulation
 
 ### 1. System Dynamics
@@ -108,6 +99,14 @@ A soft constraint is applied to the End-Effector, Wrist, Elbow, and interpolated
 $$
 (x_{node} - x_{obs})^2 + (y_{node} - y_{obs})^2 + s_k \geq r_{safe}^2
 $$
+
+## Other design parameters
+
+To ensure this controller is viable for physical hardware deployment, specific algorithmic trade-offs were made to prioritize **real-time execution (50Hz)**:
+
+* **Explicit Euler Dynamics:** Explicit Euler integration was chosen over higher-order solvers like Runge-Kutta 4 (RK4). While RK4 offers superior prediction accuracy, Explicit Euler guarantees a strict sub-20ms solve time, which is critical for closing the control loop in real-time.
+* **Predictive Horizon ($N=20$):** At a timestep of $\Delta t = 0.02s$, a 20-step horizon yields a 0.4-second predictive window. This provides just enough spatial awareness for the IPOPT solver to dodge dynamic obstacles without causing computational bottlenecks.
+* **Solve Time Performance:** The CasADi IPOPT solver successfully completes the 20-step non-linear horizon in approximately 10-15 milliseconds on an average CPU, running comfortably within the 20ms allowance required for stable 50Hz control.
 
 ## Current State & Features
 
