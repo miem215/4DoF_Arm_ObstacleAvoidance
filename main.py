@@ -79,7 +79,8 @@ def main():
             mujoco.mj_inverse(model, data)
             data.ctrl[:4] = data.qfrc_inverse[:4].copy()
             
-            mujoco.mj_step(model, data)
+            for _ in range(10):
+                mujoco.mj_step(model, data)
             viewer.sync()
 
 if __name__ == '__main__':

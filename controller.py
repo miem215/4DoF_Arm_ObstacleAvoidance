@@ -20,11 +20,15 @@ class NMPCController:
         U = self.opti.variable(4, self.N)
         
         # FIX 1: Increase safe radius! 
-        # (0.05 EE radius + 0.04 Obstacle radius + 0.06 safety buffer)
+        # (0.05 EE radius + 0.04 Obstacle radius + 0.21 safety buffer)
         safe_radius_sq = 0.3**2
         
         cost = 0
         slack = self.opti.variable(self.N)
+
+          # WARM START: Provide a reasonable initial guess so the solver doesn't start at absolute zero!
+        self.opti.set_initial(X, ca.repmat(ca.vertcat(q_curr, dq_curr), 1, self.N + 1))
+        self.opti.set_initial(slack, 0.1) # Start with a positive slack to prevent constraint singularity
         
         # FIX 2: Massive penalty. Make the obstacle physically terrifying to the solver.
         W_obs = 100000.0  
@@ -52,13 +56,54 @@ class NMPCController:
             cost += W_obs * slack[k]
             cost += ca.sumsqr(X[4:, k]) * 0.2
 
-            # FIX 3: 2D Planar Constraint (Infinite Pillar)
-            # This forces the arm to go AROUND the obstacle instead of cheating under it
-            ee_dist_sq = (ee_pos[0] - obs_pos[0])**2 + (ee_pos[1] - obs_pos[1])**2
+            # ==========================================
+            # WHOLE-BODY COLLISION AVOIDANCE
+            # ==========================================
+            # 1. Fast 3D Kinematics for the Elbow and Wrist
+            q1, q2, q3 = X[0, k], X[1, k], X[2, k]
             
-            # Soft constraint: The distance + slack must be safely outside the radius
+            # Radial distance from the base in the X-Y plane (link length = 1.0m)
+            r_elbow = 1.0 * ca.sin(q2)
+            r_wrist = r_elbow + 1.0 * ca.sin(q2 + q3)
+            
+            # Convert radial distance and yaw (q1) into global X-Y-Z coordinates
+            elbow_x = ca.cos(q1) * r_elbow
+            elbow_y = ca.sin(q1) * r_elbow
+            elbow_z = 1.0 * ca.cos(q2) # NEW: Calculate Z-height
+            
+            wrist_x = ca.cos(q1) * r_wrist
+            wrist_y = ca.sin(q1) * r_wrist
+            wrist_z = elbow_z + 1.0 * ca.cos(q2 + q3) # NEW: Calculate Z-height
+            
+            # 2. The Virtual Nodes (Midpoints of Link 3 and Link 4)
+            mid_link3_x = (elbow_x + wrist_x) / 2.0
+            mid_link3_y = (elbow_y + wrist_y) / 2.0
+            mid_link3_z = (elbow_z + wrist_z) / 2.0 # NEW
+            
+            mid_link4_x = (wrist_x + ee_pos[0]) / 2.0
+            mid_link4_y = (wrist_y + ee_pos[1]) / 2.0
+            mid_link4_z = (wrist_z + ee_pos[2]) / 2.0 # NEW
+            
+            # 3. Apply the 3D spherical force fields to all nodes!
+            # Adding the Z-axis distance allows objects to safely pass over/under the arm
+            ee_dist_sq = (ee_pos[0] - obs_pos[0])**2 + (ee_pos[1] - obs_pos[1])**2 + (ee_pos[2] - obs_pos[2])**2
             self.opti.subject_to(ee_dist_sq + slack[k] >= safe_radius_sq)
+            
+            elbow_dist_sq = (elbow_x - obs_pos[0])**2 + (elbow_y - obs_pos[1])**2 + (elbow_z - obs_pos[2])**2
+            self.opti.subject_to(elbow_dist_sq + slack[k] >= safe_radius_sq)
+            
+            wrist_dist_sq = (wrist_x - obs_pos[0])**2 + (wrist_y - obs_pos[1])**2 + (wrist_z - obs_pos[2])**2
+            self.opti.subject_to(wrist_dist_sq + slack[k] >= safe_radius_sq)
+            
+            mid_link3_dist_sq = (mid_link3_x - obs_pos[0])**2 + (mid_link3_y - obs_pos[1])**2 + (mid_link3_z - obs_pos[2])**2
+            self.opti.subject_to(mid_link3_dist_sq + slack[k] >= safe_radius_sq)
+            
+            mid_link4_dist_sq = (mid_link4_x - obs_pos[0])**2 + (mid_link4_y - obs_pos[1])**2 + (mid_link4_z - obs_pos[2])**2
+            self.opti.subject_to(mid_link4_dist_sq + slack[k] >= safe_radius_sq)
+            
+            # Require slack to be positive
             self.opti.subject_to(slack[k] >= 0)
+            # ==========================================
             
             # Postural Objective
             posture_error = X[:4, k] - q_home
@@ -82,5 +127,17 @@ class NMPCController:
         opts = {'ipopt.print_level': 0, 'print_time': 0}
         self.opti.solver('ipopt', opts)
         
-        sol = self.opti.solve()
-        return sol.value(U[:, 0])
+        try:
+            sol = self.opti.solve()
+            return sol.value(U[:, 0])
+        except Exception as e:
+            print("\n=========================================")
+            print("🚨 SOLVER CRASHED! ANALYZING VIOLATIONS...")
+            print("=========================================")
+            # This CasADi debug function prints exactly which constraints failed
+            # The '1e-5' means it will only show violations larger than 0.00001
+            self.opti.debug.show_infeasibilities(1e-5)
+            print("=========================================\n")
+            
+            # Re-raise the error so main.py can catch it and apply 0 acceleration
+            raise e
