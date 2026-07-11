@@ -7,8 +7,8 @@
   * [2. Nonlinear Model Predictive Controller (NMPC)](#2-nonlinear-model-predictive-controller-nmpc)
   * [3. Low-Level Estimation: Unscented Kalman Filter (UKF)](#3-low-level-estimation-unscented-kalman-filter-ukf)
 * [3. Whole-Body Collision Avoidance (Virtual Nodes)](#3-whole-body-collision-avoidance-virtual-nodes)
-* [Other design parameters](#other-design-parameters)
-* [4. Algorithmic Performance Trade-offs](#4-algorithmic-performance-trade-offs)
+* [4. Other design parameters](#other-design-parameters)
+* [5. Algorithmic Performance Trade-offs](#4-algorithmic-performance-trade-offs)
 
 ## Project Overview
 
@@ -141,7 +141,7 @@ $$
 (x_{node} - x_{obs})^2 + (y_{node} - y_{obs})^2 + s_k \geq r_{safe}^2
 $$
 
-## Other design parameters
+# 4. Other design parameters
 
 To ensure this controller is viable for physical hardware deployment, specific algorithmic trade-offs were made to prioritize **real-time execution (50Hz)**:
 
@@ -149,7 +149,7 @@ To ensure this controller is viable for physical hardware deployment, specific a
 * **Predictive Horizon ($N=20$):** At a timestep of $\Delta t = 0.02s$, a 20-step horizon yields a 0.4-second predictive window. This provides just enough spatial awareness for the IPOPT solver to dodge dynamic obstacles without causing computational bottlenecks.
 * **Solve Time Performance:** The CasADi IPOPT solver successfully completes the 20-step non-linear horizon in approximately 10-15 milliseconds on an average CPU, running comfortably within the 20ms allowance required for stable 50Hz control.
 
-# 4. Algorithmic Performance Trade-offs
+# 5. Algorithmic Performance Trade-offs
 
 To guarantee stable and safe real-time execution (50Hz control loop), specific design boundaries were maintained:  Explicit Euler Integration: Selected over higher-order numerical methods like RK4. 
 * Explicit Euler integration guarantees a strict sub-20ms execution overhead per optimization loop, maintaining deterministic execution intervals.  
