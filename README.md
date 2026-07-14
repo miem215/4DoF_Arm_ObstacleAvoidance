@@ -1,33 +1,18 @@
-## Table of Contents
-* [Project Overview](#project-overview)
-* [File Structure](#file-structure)
-* [1. Motivation & Project Evolution](#1-motivation--project-evolution)
-* [2. Algorithmic Layers](#2-algorithmic-layers)
-  * [1. High-Level Planning: 3D Cartesian RRT*](#1-high-level-planning-3d-cartesian-rrt)
-  * [2. Nonlinear Model Predictive Controller (NMPC)](#2-nonlinear-model-predictive-controller-nmpc)
-  * [3. Low-Level Estimation: Unscented Kalman Filter (UKF)](#3-low-level-estimation-unscented-kalman-filter-ukf)
-* [3. Whole-Body Collision Avoidance (Virtual Nodes)](#3-whole-body-collision-avoidance-virtual-nodes)
-* [4. Algorithmic Performance Trade-offs](#4-algorithmic-performance-trade-offs)
-* [5. Future Work](#5-future-work)
+# Research Question and System Architecture
 
-## Project Overview
+Primary Research Question:
 
-This project simulates a 4 Degree-of-Freedom (4-DOF) robotic arm in the MuJoCo physics engine. It implements a complete Hierarchical Autonomy Stack combining global sampling-based motion planning with real-time local optimal control and state estimation:  
+How can global sampling-based motion planning be integrated with a local finite-horizon optimization solver to prevent kinodynamic stalling and resolve non-convex local minima in dynamic manipulator control?
+
+To answer this research question, the project deploys a complete Hierarchical Autonomy Stack on a 4 Degree-of-Freedom (4-DOF) robotic arm simulated in MuJoCo, demonstrating robust collision avoidance against dynamic obstacles
 
 * High-Level Global Planner: A 3D Cartesian Rapidly-exploring Random Tree Star (RRT*) computes a collision-free geometric trajectory around macro-environmental boundaries.
 * Mid-Level Local Controller: A custom-built Nonlinear Model Predictive Controller (NMPC) powered by CasADi tracks time-indexed reference windows along the RRT* path while proactively dodging highly dynamic, swinging obstacles.  
 * Low-Level Estimator: An Unscented Kalman Filter (UKF) filters out injected Gaussian sensor noise to provide clean state estimates to the optimization loop in real time.  The system demonstrates advanced whole-body optimal control, randomized motion planning, and stochastic state estimation operating together in a high-fidelity simulated hardware environment.
 
-## File Structure
-* main.py - The core orchestrator loop. It updates MuJoCo physics, triggers the global RRT* planner, injects Gaussian sensor noise, runs the UKF pipeline, and closes the loop at 50Hz by feeding time-indexed path windows into the NMPC.  
-* planner.py - Implements the high-level 3D Cartesian RRT* planner and a dynamic waypoint interpolator/slicer to generate smooth preview reference paths for the receding horizon loop.
-* controller.py - Contains the CasADi optimization logic. Defines explicit state-space dynamics, cost profiles tracking the time-indexed path slice, and non-linear, whole-body collision avoidance manifolds.  
-* filter.py - The state estimation module. Uses deterministic sigma points via an Unscented Kalman Filter (UKF) to filter noisy joint positions and velocities.  
-* Kinematic.py - The kinematic engine handling symbolic forward kinematics used by both the NMPC optimizer and the main loop framework.  3DoFarm.xml - The MuJoCo environment specification defining structural links, active target positions, and dynamic obstacle properties. 
+# Motivation & Project Evolution
 
-# 1. Motivation & Project Evolution
-
-This project evolved through several modifications to arrive current control architecture:
+The current system architecture is the result of iterative structural upgrades designed specifically to prevent kinodynamic stalling and improve dynamic avoidance capabilities:
 
 * **Kinematic Upgrade (3-DOF to 4-DOF):** The manipulator was upgraded from 3 to 4 degrees of freedom. This added kinematic redundancy allows the arm to maintain a positional lock on the target while simultaneously contorting its internal posture to dodge obstacles.
 * **Dynamic Environments:** The project transitioned from using stationary obstacle to dynamic obstacle. This necessitated the shift to real-time Nonlinear Model Predictive Control (NMPC) to proactively predict and recalculate safe trajectories on the fly.
@@ -36,7 +21,22 @@ This project evolved through several modifications to arrive current control arc
 
 <img width="751" height="626" alt="Animation" src="https://github.com/user-attachments/assets/c48e2b02-8a60-46db-8d11-46ad8244e542" />
 
-# 2. Algorithmic Layers 
+
+## Table of Contents
+* [Research Question and System Architecture](#project-overview)
+* [Motivation & Project Evolution](#motivation--project-evolution)
+* [1. Algorithmic Layers](#1-algorithmic-layers)
+  * [1. High-Level Planning: 3D Cartesian RRT*](#1-high-level-planning-3d-cartesian-rrt)
+  * [2. Nonlinear Model Predictive Controller (NMPC)](#2-nonlinear-model-predictive-controller-nmpc)
+  * [3. Low-Level Estimation: Unscented Kalman Filter (UKF)](#3-low-level-estimation-unscented-kalman-filter-ukf)
+* [2. Whole-Body Collision Avoidance (Virtual Nodes)](#2-whole-body-collision-avoidance-virtual-nodes)
+* [3. Algorithmic Performance Trade-offs](#3-algorithmic-performance-trade-offs)
+* [4. Future Work](#4-future-work)
+* [File Structure](#file-structure)
+
+
+
+# 1. Algorithmic Layers 
 
 ## 1. High-Level Planning: 3D Cartesian RRT*
 Before the control loop initiates, planner.py constructs a randomized geometric tree in the 3D workspace from the end-effector's initial position to the target.
@@ -127,7 +127,7 @@ UKF performace on the joint velocity in current setup:
 <img width="3000" height="1500" alt="ukf_performance" src="https://github.com/user-attachments/assets/86baae36-f166-4b41-bcac-e079fb32501d" />
 
 
-# 3. Whole-Body Collision Avoidance (Virtual Nodes)
+# 2. Whole-Body Collision Avoidance (Virtual Nodes)
 
 To prevent the intermediate links from clipping through the dynamic obstacle, the arm calculates fast 2D planar kinematics (treating the obstacle as an infinite pillar along the Z-axis). For each joint/node, the radial distance $r$ in the X-Y plane is derived:
 
@@ -145,23 +145,29 @@ $$
 (x_{node} - x_{obs})^2 + (y_{node} - y_{obs})^2 + s_k \geq r_{safe}^2
 $$
 
-# 4. Algorithmic Performance Trade-offs
+# 3. Algorithmic Performance Trade-offs
 
 To guarantee stable and safe real-time execution (50Hz control loop), specific design boundaries were maintained:  Explicit Euler Integration: Selected over higher-order numerical methods like RK4. 
 * Explicit Euler integration guarantees a strict sub-20ms execution overhead per optimization loop, maintaining deterministic execution intervals.  
 * Predictive Horizon Choice ($N=20, \Delta t = 0.02s$): Results in a 0.4-second predictive preview window. This offers sufficient spatial awareness to execute local reactive avoidance maneuvers without introducing computational bottlenecks into the loop.  
 * Solve-Time Profile: The CasADi solver completes the 20-step non-linear optimization problem within approximately 10-15 milliseconds on a single standard CPU thread, operating comfortably within the 20ms timing window required for stable execution. 
 
-# 5. Future Work
+# 4. Future Work
 
-While the current architecture successfully utilizes a stall-triggered planner to escape unexpected local minima, it is still fundamentally a reactive system. To bridge the gap toward highly reliable autonomy and proactive decision-making under severe uncertainty, future iterations will focus on:
+While the current architecture successfully demonstrates that coupling a stall-triggered global planner with a local NMPC resolves non-convex local minima, the integration remains fundamentally reactive. To advance this research from reactive collision avoidance to proactive, interactive autonomy, future work could focus on:
 
-Asynchronous Dual-Threaded Replanning: Decoupling the planner and controller into parallel threads. The NMPC will maintain strict 50Hz physical safety execution, while algorithms like Real-Time RRT* (RT-RRT*) continuously re-evaluate the global workspace at ~1Hz in the background. This allows the system to proactively hot-swap the reference trajectory before a stall event is ever triggered.
+* Asynchronous Dual-Threaded Replanning (Continuous Integration): The current system triggers the global planner only after the local solver detects a stall. Future iterations will decouple the planner and controller into parallel threads. By continuously running Real-Time RRT* (RT-RRT*) at ~1Hz while the NMPC maintains strict 50Hz execution, the system can seamlessly hot-swap reference trajectories to proactively bypass non-convex traps before a stall event ever occurs.
 
-Dynamic Obstacle Trajectory Prediction: Enhancing the NMPC constraints by predicting the future kinematic trajectory of the dynamic obstacle across the predictive horizon, rather than solely reacting to its instantaneous Cartesian coordinate.
+* Dynamic Obstacle Trajectory Prediction (Eliminating Kinodynamic Stalling): Currently, the NMPC only evaluates the instantaneous Cartesian coordinates of an obstacle. By incorporating probabilistic trajectory prediction into the NMPC's finite prediction horizon, the local solver can anticipate future constraints—vastly reducing kinematic thrashing and improving safety margins in highly interactive environments.
 
-Active Perception & Sensor Fusion: Leveraging the existing Unscented Kalman Filter (UKF) architecture to fuse raw encoder data with Cartesian camera inputs, specifically addressing non-linear measurements and handling visual occlusions in real time.
+* Active Perception & Sensor Fusion: To test the local optimization solver's robustness outside of pristine simulation data, future work will leverage the existing Unscented Kalman Filter (UKF) to fuse high-frequency encoder data with delayed, non-linear Cartesian camera inputs. This ensures the solver can maintain kinodynamic stability even during visual occlusions.
 
-Learning-Based Heuristics (GPAI): Augmenting or replacing the computationally expensive geometric RRT* search with General Purpose AI models capable of instantly predicting safe topological routes based on generalized environmental data.
+## File Structure
+* main.py - The core orchestrator loop. It updates MuJoCo physics, triggers the global RRT* planner, injects Gaussian sensor noise, runs the UKF pipeline, and closes the loop at 50Hz by feeding time-indexed path windows into the NMPC.  
+* planner.py - Implements the high-level 3D Cartesian RRT* planner and a dynamic waypoint interpolator/slicer to generate smooth preview reference paths for the receding horizon loop.
+* controller.py - Contains the CasADi optimization logic. Defines explicit state-space dynamics, cost profiles tracking the time-indexed path slice, and non-linear, whole-body collision avoidance manifolds.  
+* filter.py - The state estimation module. Uses deterministic sigma points via an Unscented Kalman Filter (UKF) to filter noisy joint positions and velocities.  
+* Kinematic.py - The kinematic engine handling symbolic forward kinematics used by both the NMPC optimizer and the main loop framework.  3DoFarm.xml - The MuJoCo environment specification defining structural links, active target positions, and dynamic obstacle properties. 
+
 
 ----
