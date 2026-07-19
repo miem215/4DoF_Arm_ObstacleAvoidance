@@ -47,7 +47,7 @@ $$\text{Trajectory Window}_t = \begin{bmatrix} p_{ref, t} & p_{ref, t+1} & \dots
 
 | Only NMPC | With High Level Planning |
 | :---: | :---: |
-| ![Trajectory with only NMPC](figure/nmpc_only_trajectory.png) | ![Trajectory with high level planning](figure/actual_mujoco_trajectory.png) |
+| ![Trajectory with only NMPC](python/figure/nmpc_only_trajectory.png) | ![Trajectory with high level planning](python/figure/actual_mujoco_trajectory.png) |
 
 * Standard NMPC is fundamentally "short-sighted." Because its predictive horizon is limited to 0.4 seconds ($N=20$), it lacks global spatial awareness. When it encounters the massive, non-convex penalty field of the sweeping obstacle, the optimization solver panics. It violently fights between the target-tracking cost pulling it forward and the obstacle penalty pushing it back, resulting in erratic kinodynamic "thrashing" (the massive orange spirals) or complete stalling. Sending these oscillating acceleration commands to physical hardware would be highly dangerous and inefficient.
 * Adding the 3D Cartesian RRT* layer resolves this by decoupling Decision-Making from Execution. The RRT* evaluates the entire workspace globally, routing a completely collision-free geometric path around the non-convex trap before motion even begins.
@@ -72,7 +72,7 @@ As visualized in the landscape plot below, the obstacle creates a massive penalt
 * The Myopic Trap (Yellow): Because the NMPC only predicts 0.4 seconds into the future, a flat architecture drives straight into the "valley" behind the obstacle, trapping the arm in a local minimum stall.
 * The Global Solution (Green): The high-level RRT* planner solves the geometric maze globally before execution, routing a pre-validated path entirely around the obstacle penalty. The NMPC simply tracks these safe waypoints.
 
- ![Trajectory with only NMPC](figure/optimization_landscape.png)
+ ![Trajectory with only NMPC](python/figure/optimization_landscape.png)
 
 ### System Dynamics
 The NMPC predicts the future states of the arm over a horizon $N$ using Explicit Euler integration. Let the state vector be $x = [q, \dot{q}]^T \in \mathbb{R}^8$ and the control input be joint accelerations $u = \ddot{q} \in \mathbb{R}^4$. The system dynamics are defined as:
