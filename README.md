@@ -1,3 +1,17 @@
+# Engineering Highlights
+
+1. Resolving Kinodynamic Stalling in Non-Convex Spaces
+* The Challenge: Standard MPC relying on Quadratic Programming (QP) solvers fundamentally requires linear dynamics and convex optimization landscapes. When a 4-DOF manipulator encounters a dynamic obstacle, the non-convex penalty field traps the solver in local minima, causing erratic kinodynamic "thrashing" or complete system stalling.  *
+* The Solution: Developed a hierarchical motion planning architecture that decouples global routing from local execution. A high-level 3D Cartesian RRT* planner computes a collision-free geometric path around macro-boundaries. This global path is sliced into time-indexed reference windows and fed to a custom mid-level Nonlinear Model Predictive Controller (NMPC) powered by CasADi.  
+* The Result: The system completely bypasses local minima traps. The global RRT* routes a safe path around the main obstacle penalty, allowing the NMPC to evaluate true non-linear explicit dynamics natively and smoothly dodge swinging disturbances in real-time. The optimization solves in 10-15 milliseconds, ensuring a stable 50Hz control loop. 
+
+2. Stabilizing Kinematic Execution via Dynamic Cost Tuning
+* The Challenge: When dodging dynamic obstacles, redundant manipulators are prone to violent momentum overshoots and aimless joint drifting if the local optimization solver exclusively prioritizes positional tracking.  
+* The Solution: Engineered a multi-objective cost function within the NMPC to actively constrain physical behavior. Introduced an artificial velocity damping penalty ($0.2 \Vert{} \dot{q}_k \Vert{}_2^2$) to force the arm to gracefully decelerate as it approaches reference points. Simultaneously, embedded a postural alignment cost ($W_{posture}$) to continuously pull the arm's internal configuration back toward a stable home posture.  
+* The Result: The manipulator achieves highly stable, energy-efficient execution. The system safely balances aggressive whole-body obstacle avoidance with strict structural stability, naturally resisting momentum overshoots and unstable internal contortions.  
+
+![Block Diagram](python/figure/block_diagram.png)
+
 # Research Question and System Architecture
 
 Primary Research Question:
